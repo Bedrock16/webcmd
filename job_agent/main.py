@@ -36,15 +36,15 @@ def run_pipeline(
     role = target_role or SEARCH_CONFIG["target_role"]
     AGENT_RULES["dry_run"] = dry_run
 
-    # If a custom role was passed, rebuild the LinkedIn search URL dynamically
-    if target_role and target_role != SEARCH_CONFIG["target_role"]:
-        from urllib.parse import quote
-        SEARCH_CONFIG["target_role"] = target_role
-        SEARCH_CONFIG["search_keywords"] = [kw.strip() for kw in target_role.split() if len(kw.strip()) > 2]
-        for site in SEARCH_CONFIG["target_sites"]:
-            if site.get("type") == "linkedin":
-                site["url"] = f"https://www.linkedin.com/jobs/search?keywords={quote(target_role)}&location=Worldwide"
-                logger.info("LinkedIn URL rebuilt for role: %s -> %s", target_role, site["url"])
+    # Always rebuild the LinkedIn search URL from the active role
+    # so the dashboard input field actually controls what gets searched
+    from urllib.parse import quote
+    SEARCH_CONFIG["target_role"] = role
+    SEARCH_CONFIG["search_keywords"] = [kw.strip() for kw in role.split() if len(kw.strip()) > 2]
+    for site in SEARCH_CONFIG["target_sites"]:
+        if site.get("type") == "linkedin":
+            site["url"] = f"https://www.linkedin.com/jobs/search?keywords={quote(role)}&location=Worldwide"
+            logger.info("LinkedIn search URL: %s", site["url"])
 
     if reset_state:
         logger.info("Resetting state.json history for a clean-slate run...")
