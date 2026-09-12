@@ -130,6 +130,8 @@ return { searched: false };
             return self._scrape_hn_jobs()
         elif site_type == "linkedin":
             return self._scrape_linkedin(site_url=site_url)
+        elif site_type == "naukri":
+            return self._scrape_naukri(site_url=site_url)
         else:
             return self._scrape_generic_listings()
 
@@ -437,3 +439,267 @@ return jobs;
         except Exception as exc:
             logger.warning("Error during LinkedIn scraping: %s", exc)
             return []
+
+    def _scrape_naukri(self, site_url: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Scrape jobs from Naukri.com with full browser movement:
+        1. Navigate to Naukri search results page.
+        2. Dismiss any login/popup overlays.
+        3. Scroll through listings to load job cards.
+        4. For each job card:
+           - Open the individual job page in the same tab.
+           - Dismiss popups, expand full description.
+           - Scroll visibly through the job content.
+           - Extract title, company, location, experience, skills, and full description.
+           - Navigate back to the search results.
+        """
+        import time
+
+        # Helper to dismiss Naukri popups (login prompts, chatbots, etc.)
+        def _dismiss_naukri_popups():
+            if not self.client.page:
+                return
+            try:
+                self.client.page.evaluate("""() => {
+                    // Close login/signup popup
+                    const closeBtns = document.querySelectorAll(
+                        '.login-layer .crossIcon, [class*="CloseButton"], [class*="close-btn"], ' +
+                        '#login_layer .cross-icon, .chatbot_closeButton, ' +
+                        'button[title="Close"], [data-ga-track="close"], ' +
+                        '.styles_closebtn__rQCKI'
+                    );
+                    closeBtns.forEach(b => { try { b.click(); } catch(e) {} });
+                    
+                    // Remove overlay/backdrop elements
+                    const overlays = document.querySelectorAll(
+                        '.login-layer, #login_layer, .chatbot_container, ' +
+                        '[class*="LoginOverlay"], [class*="modal-overlay"], ' +
+                        '.styles_overlay__XMRXv'
+                    );
+                    overlays.forEach(el => el.remove());
+                    
+                    // Restore body scrolling
+                    document.body.style.overflow = 'auto';
+                    document.body.style.position = '';
+                    document.documentElement.style.overflow = 'auto';
+                }""")
+            except Exception:
+                pass
+
+        if hasattr(self.client, 'page') and self.client.page:
+            # 1. Dismiss popups on search page
+            time.sleep(1.5)
+            _dismiss_naukri_popups()
+
+            # 2. Scroll search results to load job cards
+            try:
+                logger.info("Scrolling Naukri search results to load job cards...")
+                self.client.page.mouse.wheel(0, 600)
+                time.sleep(1.5)
+                _dismiss_naukri_popups()
+                self.client.page.mouse.wheel(0, 400)
+                time.sleep(1.0)
+                _dismiss_naukri_popups()
+            except Exception:
+                pass
+
+            # 3. Extract job cards from search results
+            try:
+                cards = self.client.page.evaluate("""() => {
+                    const jobCards = Array.from(document.querySelectorAll(
+                        'article.jobTuple, .srp-jobtuple-wrapper, [class*="jobTuple"], ' +
+                        '.list .cust-job-tuple, .cust-job-tuple, [data-job-id]'
+                    ));
+                    
+                    // Fallback: try broader selectors if no cards found
+                    const allCards = jobCards.length > 0 ? jobCards : 
+                        Array.from(document.querySelectorAll('.srp-jobtuple-wrapper a, .jobTupleHeader a'));
+                    
+                    return allCards.slice(0, 8).map(card => {
+                        const titleEl = card.querySelector(
+                            '.title, .jobTupleHeader a, [class*="title"], a.title, ' +
+                            'a[class*="JobTitle"], .row1 a, h2 a'
+                        );
+                        const companyEl = card.querySelector(
+                            '.comp-name, .subTitle, [class*="companyInfo"], ' +
+                            '.row2 .comp-name, a.subTitle'
+                        );
+                        const locEl = card.querySelector(
+                            '.loc, .locWdth, [class*="location"], .row3 .loc, .ni-job-tuple-icon-srp-location + span'
+                        );
+                        const expEl = card.querySelector(
+                            '.exp, .expwdth, [class*="experience"], .row3 .exp, .ni-job-tuple-icon-srp-experience + span'
+                        );
+                        const salaryEl = card.querySelector(
+                            '.sal, .ni-job-tuple-icon-srp-rupee + span, [class*="salary"]'
+                        );
+                        
+                        let url = '';
+                        const linkEl = titleEl && titleEl.tagName === 'A' ? titleEl : 
+                            card.querySelector('a.title, a[class*="title"], a[href*="naukri.com/job-listings"]');
+                        if (linkEl) url = linkEl.href || '';
+                        
+                        // Also try the card itself if it's a link
+                        if (!url) {
+                            const anyLink = card.querySelector('a[href*="job-listings"], a[href*="/job/"]');
+                            if (anyLink) url = anyLink.href;
+                        }
+
+                        const snippet = card.querySelector('.job-desc, .ellipsis, [class*="description"]');
+                        
+                        return {
+                            title: titleEl ? titleEl.textContent.trim() : '',
+                            company: companyEl ? companyEl.textContent.trim() : '',
+                            location: locEl ? locEl.textContent.trim() : '',
+                            experience: expEl ? expEl.textContent.trim() : '',
+                            salary: salaryEl ? salaryEl.textContent.trim() : '',
+                            snippet: snippet ? snippet.textContent.trim() : '',
+                            url: url,
+                            source: 'Naukri'
+                        };
+                    }).filter(j => j.title && j.url);
+                }""")
+            except Exception as exc:
+                logger.warning("Error extracting Naukri job cards: %s", exc)
+                cards = []
+
+            if not cards:
+                logger.warning("No Naukri job cards detected on search results page.")
+                return []
+
+            total_jobs = len(cards)
+            logger.info("Found %d Naukri listings. Now opening each job page...", total_jobs)
+
+            enriched_jobs: List[Dict[str, Any]] = []
+
+            for idx, card in enumerate(cards, start=1):
+                job_url = card.get("url")
+                if not job_url:
+                    continue
+
+                logger.info("------------------------------------------------------------")
+                logger.info(">>> [NAUKRI JOB %d/%d] Opening: '%s' at '%s'", idx, total_jobs, card.get("title"), card.get("company"))
+                logger.info("Navigating to: %s", job_url)
+
+                # Step A: Navigate to job page
+                self.client.navigate(job_url)
+                time.sleep(1.5)
+
+                # Step B: Dismiss popups
+                _dismiss_naukri_popups()
+
+                # Step C: Scroll through job details
+                if self.client.page:
+                    try:
+                        logger.info("Scrolling job posting to inspect description & requirements...")
+                        self.client.page.mouse.wheel(0, 500)
+                        time.sleep(1.2)
+                        _dismiss_naukri_popups()
+                        self.client.page.mouse.wheel(0, 400)
+                        time.sleep(1.0)
+                        self.client.page.mouse.wheel(0, -200)
+                        time.sleep(0.8)
+                    except Exception:
+                        pass
+
+                    self.client.capture_screenshot()
+
+                    # Step D: Extract full job details
+                    try:
+                        details = self.client.page.evaluate("""() => {
+                            const titleEl = document.querySelector(
+                                'h1.jd-header-title, .jd-header-title, h1[class*="title"], .styles_jd-header-title'
+                            );
+                            const companyEl = document.querySelector(
+                                '.jd-header-comp-name a, .jd-header-comp-name, [class*="comp-name"] a'
+                            );
+                            const locEl = document.querySelector(
+                                '.loc .locWdth, .location .locWdth, [class*="location"]'
+                            );
+                            const expEl = document.querySelector(
+                                '.exp .exp-info, .experience, [class*="experience"]'
+                            );
+                            const salEl = document.querySelector(
+                                '.sal .salary, .salary, [class*="salary"]'
+                            );
+                            
+                            // Full description
+                            const descEl = document.querySelector(
+                                '.styles_JDC__dang-inner-html__h0K4t, .job-desc, .dang-inner-html, ' + 
+                                '[class*="job-desc"], .styles_job-desc-container'
+                            );
+                            
+                            // Key skills
+                            const skills = Array.from(document.querySelectorAll(
+                                '.key-skill a, .chip_chip, [class*="chip"] a, .styles_key-skill__GIPn_ a, ' +
+                                '.key-skill .chip-body, a.styles_chip-body'
+                            )).map(s => s.textContent.trim());
+                            
+                            // Other details (role, industry, etc.)
+                            const otherDetails = {};
+                            const detailRows = document.querySelectorAll(
+                                '.other-details .details-body, .styles_details__Y424J, [class*="other-detail"]'
+                            );
+                            detailRows.forEach(row => {
+                                const label = row.querySelector('.label, [class*="label"]');
+                                const value = row.querySelector('.value, [class*="value"]');
+                                if (label && value) {
+                                    otherDetails[label.textContent.trim().toLowerCase()] = value.textContent.trim();
+                                }
+                            });
+                            
+                            return {
+                                title: titleEl ? titleEl.textContent.trim() : '',
+                                company: companyEl ? companyEl.textContent.trim() : '',
+                                location: locEl ? locEl.textContent.trim() : '',
+                                experience: expEl ? expEl.textContent.trim() : '',
+                                salary: salEl ? salEl.textContent.trim() : '',
+                                description: descEl ? descEl.textContent.trim() : '',
+                                skills: skills,
+                                other_details: otherDetails
+                            };
+                        }""")
+                    except Exception as exc:
+                        logger.warning("Error reading Naukri job DOM: %s", exc)
+                        details = {}
+
+                    # Merge details
+                    full_title = details.get("title") or card.get("title")
+                    full_company = details.get("company") or card.get("company")
+                    full_loc = details.get("location") or card.get("location")
+                    full_desc = details.get("description") or card.get("snippet", "")
+                    skills = details.get("skills", [])
+
+                    enriched_job = {
+                        **card,
+                        "title": full_title,
+                        "company": full_company,
+                        "location": full_loc,
+                        "experience": details.get("experience") or card.get("experience", ""),
+                        "salary": details.get("salary") or card.get("salary", ""),
+                        "criteria": {
+                            "skills": ", ".join(skills) if skills else "",
+                            **details.get("other_details", {})
+                        },
+                        "description": full_desc,
+                        "snippet": full_desc[:300] if full_desc else card.get("snippet", ""),
+                        "source": "Naukri"
+                    }
+                    enriched_jobs.append(enriched_job)
+                    logger.info("Scraped: '%s' @ %s (%d chars desc, %d skills)",
+                                full_title, full_company, len(full_desc), len(skills))
+
+                    # Step E: Navigate back to search results
+                    logger.info("Getting back to Naukri search results...")
+                    self.client.go_back(fallback_url=site_url)
+                    _dismiss_naukri_popups()
+                    time.sleep(1.5)
+                else:
+                    enriched_jobs.append(card)
+
+            logger.info("Completed Naukri scraping: %d jobs collected.", len(enriched_jobs))
+            return enriched_jobs
+
+        # Fallback for non-real Chrome
+        logger.warning("Naukri scraper requires real Chrome (headless=False). Skipping.")
+        return []

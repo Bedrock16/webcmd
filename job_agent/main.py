@@ -47,6 +47,9 @@ def run_pipeline(
         if site.get("type") == "linkedin":
             site["url"] = f"https://www.linkedin.com/jobs/search?keywords={quote(role)}&location=Worldwide"
             logger.info("LinkedIn search URL: %s", site["url"])
+        elif site.get("type") == "naukri":
+            site["url"] = f"https://www.naukri.com/{'-'.join(role.lower().split())}-jobs"
+            logger.info("Naukri search URL: %s", site["url"])
 
     # Rebuild scoring rules — generic prompt adapts to whatever the user typed
     _config_module.SCORING_RULES = _build_scoring_rules(role)
