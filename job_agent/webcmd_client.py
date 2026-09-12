@@ -39,11 +39,19 @@ class WebcmdClient:
     Ensures that on fresh start, any lingering browser processes or sessions are terminated.
     """
 
-    def __init__(self, session_name: str = "job-pilot-session", use_real_chrome: bool = True):
+    def __init__(
+        self,
+        session_name: str = "job-pilot-session",
+        use_real_chrome: bool = True,
+        window_pos: str = "80,60",
+        window_size: str = "1280,850"
+    ):
         self.session_name = session_name
         self.session_id: Optional[str] = None
         self.use_real_chrome = use_real_chrome and HAS_PLAYWRIGHT
         self.chrome_executable = AGENT_RULES.get("chrome_executable") or find_chrome_executable()
+        self.window_pos = window_pos
+        self.window_size = window_size
 
         # Playwright runtime handles
         self.playwright: Optional[Any] = None
@@ -100,22 +108,16 @@ class WebcmdClient:
                 cmd,
                 capture_output=True,
                 text=True,
-                encoding="utf-8",
-                errors="replace",
-                shell=(os.name == "nt"),
                 timeout=timeout,
-                check=False
+                shell=(os.name == "nt")
             )
-        except subprocess.TimeoutExpired as exc:
-            raise WebcmdError(f"Webcmd command timed out after {timeout}s: {' '.join(cmd)}") from exc
+            return proc.stdout.strip()
+        except subprocess.TimeoutExpired:
+            logger.warning("CLI command timed out: %s", " ".join(cmd))
+            return ""
         except Exception as exc:
-            raise WebcmdError(f"Failed to execute webcmd command: {exc}") from exc
-
-        if proc.returncode != 0:
-            err_msg = proc.stderr.strip() or proc.stdout.strip()
-            raise WebcmdError(f"Webcmd exited with code {proc.returncode}: {err_msg}")
-
-        return proc.stdout.strip()
+            logger.error("CLI execution error: %s", exc)
+            return ""
 
     def check_doctor(self) -> bool:
         """Verify environment readiness."""
@@ -130,26 +132,28 @@ class WebcmdClient:
             logger.warning("Webcmd doctor check: %s", exc)
             return True
 
-    def start_session(self) -> str:
+    def start_session(self, clean_stale: bool = True) -> str:
         """
-        Always close any lingering browser first on fresh start,
-        then launch a real visible Chrome browser instance.
+        Launch a real visible Chrome browser instance with optional stale cleanup.
         """
         if self.page and not self.page.is_closed():
             logger.info("Reusing active browser session: %s", self.session_id)
             return self.session_id or "real-chrome-session"
 
-        # 1. Enforce clean fresh start: close stale browsers
-        self.close_stale_browsers()
+        # 1. Enforce clean fresh start: close stale browsers if requested
+        if clean_stale:
+            self.close_stale_browsers()
 
         # 2. Launch real visible Chrome window
         if self.use_real_chrome:
-            logger.info("Opening REAL Chrome browser instance (visible window on desktop)...")
+            logger.info("Opening REAL Chrome browser instance (window at %s, size %s)...", self.window_pos, self.window_size)
             try:
                 self.playwright = sync_playwright().start()
+                w_str, h_str = self.window_size.split(",")
+                w_val, h_val = int(w_str), int(h_str)
                 launch_args = [
-                    "--window-size=1280,850",
-                    "--window-position=80,60",
+                    f"--window-size={self.window_size}",
+                    f"--window-position={self.window_pos}",
                     "--disable-blink-features=AutomationControlled",
                     "--no-default-browser-check",
                     "--no-first-run",
@@ -160,7 +164,7 @@ class WebcmdClient:
                     args=launch_args
                 )
                 self.context = self.browser.new_context(
-                    viewport={"width": 1280, "height": 850},
+                    viewport={"width": w_val, "height": h_val},
                     extra_http_headers={
                         "referer": "https://www.google.com/",
                         "accept-language": "en-US,en;q=0.9",
@@ -168,7 +172,7 @@ class WebcmdClient:
                     user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
                 )
                 self.page = self.context.new_page()
-                self.session_id = f"real-chrome-{int(time.time())}"
+                self.session_id = f"real-chrome-{int(time.time())}-{random.randint(100, 999)}"
                 logger.info("Real Chrome browser window opened successfully (Session: %s)!", self.session_id)
                 return self.session_id
             except Exception as exc:

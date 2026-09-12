@@ -17,52 +17,108 @@ class SearchAgent:
     """
     Automates job board discovery, query entry, and job card scraping
     using Webcmd as the browser automation engine.
+    Supports running multiple real Chrome browser instances simultaneously in parallel.
     """
 
-    def __init__(self, client: WebcmdClient):
+    def __init__(self, client: Optional[WebcmdClient] = None):
         self.client = client
+
+    def scrape_site(self, site_info: Dict[str, Any], search_query: str) -> List[Dict[str, Any]]:
+        """Scrape a single target job site using this agent's active browser client."""
+        site_name = site_info.get("name", "Unknown")
+        site_url = site_info.get("url")
+        site_type = site_info.get("type", "generic")
+
+        logger.info("[%s] Accessing job board: %s (%s)...", site_name, site_name, site_url)
+        try:
+            # 1. Navigate to target job board
+            nav_info = self.client.navigate(site_url)
+            logger.info("[%s] Arrived at '%s' (Title: %s)", site_name, nav_info.get("url"), nav_info.get("title"))
+
+            # 2. Dismiss cookie banners or modal overlays
+            self.client.dismiss_modals()
+
+            # 3. Human-in-the-loop delay
+            self.client.human_delay(
+                AGENT_RULES["min_delay_seconds"],
+                AGENT_RULES["max_delay_seconds"]
+            )
+
+            # 4. Search bar interaction (if on a search-capable landing page)
+            self._attempt_search_bar_input(search_query)
+
+            # 5. Scrape job listings based on site type
+            jobs = self._scrape_site_listings(site_type, site_url=site_url)
+            logger.info("[%s] Extracted %d jobs from %s", site_name, len(jobs), site_name)
+            return jobs
+
+        except Exception as exc:
+            logger.error("[%s] Error scraping site %s: %s", site_name, site_name, exc)
+            return []
 
     def search_and_scrape(self, query: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Execute Stage 1: Iterate over configured job boards, search for the target role,
-        and extract available job postings.
+        Execute Stage 1: Iterate over configured job boards in parallel,
+        opening separate side-by-side Chrome browser windows for each site.
         """
+        import concurrent.futures
+
         search_query = query or SEARCH_CONFIG["target_role"]
-        logger.info("=== STAGE 1: SEARCH & SCRAPE for '%s' ===", search_query)
+        target_sites = SEARCH_CONFIG.get("target_sites", [])
+        logger.info("=== STAGE 1: PARALLEL SEARCH & SCRAPE for '%s' across %d boards ===", search_query, len(target_sites))
+
+        # 1. Clean up any stale/dangling browser processes ONCE before launching workers
+        WebcmdClient.close_stale_browsers()
+
+        # Define side-by-side screen positioning for parallel windows:
+        # Window 0 (Left side):  pos 0,50   size 950,900 (e.g. LinkedIn)
+        # Window 1 (Right side): pos 960,50  size 950,900 (e.g. Naukri)
+        layouts = [
+            {"pos": "0,50", "size": "950,900"},
+            {"pos": "960,50", "size": "950,900"},
+            {"pos": "50,100", "size": "950,850"},
+            {"pos": "900,100", "size": "950,850"},
+        ]
+
+        def _worker(idx: int, site_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+            layout = layouts[idx % len(layouts)]
+            site_name = site_info.get("name", f"site-{idx}")
+            session_name = f"job-pilot-{site_name.lower().replace(' ', '-')}"
+
+            logger.info(">>> Launching parallel browser for [%s] at screen position %s...", site_name, layout["pos"])
+            worker_client = WebcmdClient(
+                session_name=session_name,
+                window_pos=layout["pos"],
+                window_size=layout["size"]
+            )
+            try:
+                # Do NOT clean stale browsers inside worker - they would kill each other!
+                worker_client.start_session(clean_stale=False)
+                worker_agent = SearchAgent(client=worker_client)
+                return worker_agent.scrape_site(site_info, search_query)
+            except Exception as e:
+                logger.error("Exception in parallel worker [%s]: %s", site_name, e)
+                return []
+            finally:
+                logger.info("Closing parallel browser session for [%s]...", site_name)
+                worker_client.close_session()
 
         all_scraped_jobs: List[Dict[str, Any]] = []
 
-        for site_info in SEARCH_CONFIG["target_sites"]:
-            site_name = site_info.get("name", "Unknown")
-            site_url = site_info.get("url")
-            site_type = site_info.get("type", "generic")
-
-            logger.info("Accessing job board: %s (%s)...", site_name, site_url)
-            try:
-                # 1. Navigate to target job board
-                nav_info = self.client.navigate(site_url)
-                logger.info("Arrived at '%s' (Title: %s)", nav_info.get("url"), nav_info.get("title"))
-
-                # 2. Dismiss cookie banners or modal overlays
-                self.client.dismiss_modals()
-
-                # 3. Human-in-the-loop delay
-                self.client.human_delay(
-                    AGENT_RULES["min_delay_seconds"],
-                    AGENT_RULES["max_delay_seconds"]
-                )
-
-                # 4. Search bar interaction (if on a search-capable landing page)
-                self._attempt_search_bar_input(search_query)
-
-                # 5. Scrape job listings based on site type
-                jobs = self._scrape_site_listings(site_type, site_url=site_url)
-                logger.info("Extracted %d jobs from %s", len(jobs), site_name)
-                all_scraped_jobs.extend(jobs)
-
-            except Exception as exc:
-                logger.error("Error scraping site %s: %s", site_name, exc)
-                continue
+        # Run both scrapers concurrently in thread pool
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(target_sites))) as executor:
+            future_map = {
+                executor.submit(_worker, idx, site_info): site_info.get("name", f"Site-{idx}")
+                for idx, site_info in enumerate(target_sites)
+            }
+            for future in concurrent.futures.as_completed(future_map):
+                s_name = future_map[future]
+                try:
+                    site_jobs = future.result()
+                    logger.info("Worker [%s] finished with %d jobs.", s_name, len(site_jobs))
+                    all_scraped_jobs.extend(site_jobs)
+                except Exception as exc:
+                    logger.error("Worker [%s] generated an exception: %s", s_name, exc)
 
         # Deduplicate by URL in scraped batch
         seen_urls = set()
@@ -73,7 +129,7 @@ class SearchAgent:
                 seen_urls.add(url)
                 unique_jobs.append(job)
 
-        logger.info("Stage 1 complete: Scraped %d unique jobs across all boards.", len(unique_jobs))
+        logger.info("Stage 1 complete: Scraped %d unique jobs across all boards in parallel.", len(unique_jobs))
         return unique_jobs
 
     def _attempt_search_bar_input(self, query: str) -> None:

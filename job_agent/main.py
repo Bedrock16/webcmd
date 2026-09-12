@@ -73,26 +73,20 @@ def run_pipeline(
     logger.info("State File:     %s", AGENT_RULES["state_file"])
     logger.info("==========================================================")
 
-    # Initialize Webcmd browser client
-    client = WebcmdClient(session_name="job-pilot-session")
-
     try:
         # Pre-flight: Webcmd Doctor check
         if not skip_doctor:
-            if not client.check_doctor():
+            preflight = WebcmdClient()
+            if not preflight.check_doctor():
                 logger.error("Webcmd environment check failed! Run 'webcmd doctor' to fix setup issues.")
                 sys.exit(1)
         else:
             logger.info("Skipping doctor check as requested.")
 
-        # Start browser session
-        session_id = client.start_session()
-        logger.info("Webcmd session established: %s", session_id)
-
         # ------------------------------------------------------------------
-        # STAGE 1: Search & Scrape
+        # STAGE 1: Search & Scrape (Parallel Dual-Browser for LinkedIn + Naukri)
         # ------------------------------------------------------------------
-        searcher = SearchAgent(client)
+        searcher = SearchAgent()
         raw_jobs = searcher.search_and_scrape(role)
         logger.info("Stage 1 Output: Found %d candidate jobs.", len(raw_jobs))
 
@@ -126,10 +120,7 @@ def run_pipeline(
     except Exception as e:
         logger.error("Unexpected error in pipeline: %s", e, exc_info=True)
     finally:
-        # Guarantee browser session cleanup
-        logger.info("Cleaning up Webcmd browser session...")
-        client.close_session()
-        logger.info("Browser session closed. Agent execution finished.")
+        logger.info("Agent pipeline finished.")
 
 
 def main():
