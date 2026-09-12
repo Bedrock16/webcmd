@@ -194,64 +194,33 @@ Scoring Rules:
 
     def _score_with_fallback_rules(self, job: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Deterministic rule-based scoring engine that adapts dynamically
-        to the target role from SCORING_RULES (is_senior, is_junior, wants_remote, matched_tech).
+        Simple keyword-overlap fallback scorer (used when LLM API is unavailable).
+        Scores based on how many words from the user's target role appear in the job text.
+        No hardcoded assumptions about remote, seniority, or tech stack.
         """
-        text = f"{job.get('title', '')} {job.get('snippet', '')} {job.get('description', '')} {job.get('location', '')} {json.dumps(job.get('criteria', {}))}".lower()
+        target_role = SCORING_RULES.get("target_role", "Software Developer").lower()
+        role_keywords = [kw for kw in target_role.split() if len(kw) > 2]
+
+        text = f"{job.get('title', '')} {job.get('snippet', '')} {job.get('description', '')} {job.get('location', '')}".lower()
         score = 5.0
-        reasons = ["Base score: +5.0"]
+        reasons = ["Base score: 5.0"]
 
-        is_senior_search = SCORING_RULES.get("is_senior", False)
-        is_junior_search = SCORING_RULES.get("is_junior", False)
-        wants_remote = SCORING_RULES.get("wants_remote", True)
-        matched_tech = SCORING_RULES.get("matched_tech", [])
+        # Score based on keyword overlap between target role and job
+        matched = [kw for kw in role_keywords if kw in text]
+        match_ratio = len(matched) / max(len(role_keywords), 1)
 
-        # Check remote (+3) — only if user wants remote
-        if wants_remote and any(term in text for term in ["remote", "worldwide", "anywhere", "telecommute"]):
-            score += 3.0
-            reasons.append("+3.0: Remote position matches preference")
-
-        # Seniority scoring — adapts to what the user is looking for
-        if is_senior_search:
-            # User wants Senior roles: reward Senior, penalize Junior-only
-            if any(term in text for term in ["senior", "sr.", "lead", "principal", "staff", "head of", "director", "architect"]):
-                score += 3.0
-                reasons.append("+3.0: Senior/Lead level matches target")
-            if any(term in text for term in ["junior", "entry", "intern", "graduate"]):
-                has_senior_too = any(term in text for term in ["senior", "sr.", "lead", "principal", "staff"])
-                if not has_senior_too:
-                    score -= 3.0
-                    reasons.append("-3.0: Junior/entry-level role (user wants Senior)")
-        elif is_junior_search:
-            # User wants Junior roles: reward Junior, penalize Senior
-            if any(term in text for term in ["junior", "entry", "associate", "graduate", "intern", "0-2"]):
-                score += 3.0
-                reasons.append("+3.0: Junior/entry-level role")
-            if any(term in text for term in ["senior", "sr.", "lead", "principal", "staff", "head of", "director"]):
-                score -= 5.0
-                reasons.append("-5.0: Requires Senior/Lead experience (user wants Junior)")
+        if match_ratio >= 0.75:
+            score += 4.0
+            reasons.append(f"+4.0: Strong match — {len(matched)}/{len(role_keywords)} role keywords found ({', '.join(matched)})")
+        elif match_ratio >= 0.5:
+            score += 2.5
+            reasons.append(f"+2.5: Moderate match — {len(matched)}/{len(role_keywords)} role keywords found ({', '.join(matched)})")
+        elif match_ratio >= 0.25:
+            score += 1.0
+            reasons.append(f"+1.0: Partial match — {len(matched)}/{len(role_keywords)} role keywords found ({', '.join(matched)})")
         else:
-            # Mid-level / unspecified — mild bonus for seniority match
-            if any(term in text for term in ["mid", "middle", "intermediate", "2-5", "3-5"]):
-                score += 2.0
-                reasons.append("+2.0: Mid-level role matches target")
-
-        # Tech stack scoring — uses dynamically detected keywords from the role
-        if matched_tech:
-            if any(tech in text for tech in matched_tech):
-                score += 2.0
-                matched = [t for t in matched_tech if t in text]
-                reasons.append(f"+2.0: Tech stack match ({', '.join(matched)})")
-        else:
-            # Fallback: generic tech detection
-            if any(term in text for term in ["python", "javascript", "react", "node", "java", "go", "rust", "typescript"]):
-                score += 1.0
-                reasons.append("+1.0: Relevant tech stack detected")
-
-        # Onsite penalty — only if user wants remote
-        if wants_remote and any(term in text for term in ["onsite only", "must be located in", "relocation required"]):
-            score -= 5.0
-            reasons.append("-5.0: Mandatory onsite/relocation (user wants remote)")
+            score -= 1.0
+            reasons.append(f"-1.0: Weak match — only {len(matched)}/{len(role_keywords)} role keywords found")
 
         score = max(0.0, min(10.0, score))
         passed = score >= self.min_passing_score
@@ -261,4 +230,3 @@ Scoring Rules:
             "passed": passed,
             "reasons": reasons
         }
-

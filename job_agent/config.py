@@ -59,59 +59,22 @@ SEARCH_CONFIG = {
 # 3. SMART FILTERING & SCORING RULES
 # ==========================================
 def _build_scoring_rules(role: str) -> dict:
-    """Build scoring criteria dynamically based on the target role."""
-    role_lower = role.lower()
-
-    # Detect seniority level from role
-    is_senior = any(kw in role_lower for kw in ["senior", "sr.", "lead", "principal", "staff", "architect", "head", "director", "manager"])
-    is_junior = any(kw in role_lower for kw in ["junior", "jr.", "entry", "intern", "associate", "graduate", "fresher"])
-    wants_remote = any(kw in role_lower for kw in ["remote", "worldwide", "anywhere"])
-
-    # Extract tech keywords from the role
-    all_tech_keywords = ["python", "javascript", "typescript", "react", "angular", "vue", "node", "java", "go",
-                         "rust", "c++", "c#", ".net", "ruby", "php", "swift", "kotlin", "flutter", "dart",
-                         "django", "fastapi", "flask", "spring", "express", "next.js", "nuxt",
-                         "aws", "azure", "gcp", "devops", "docker", "kubernetes", "terraform",
-                         "data", "ml", "machine learning", "ai", "deep learning", "nlp",
-                         "sql", "postgres", "mongodb", "redis", "elasticsearch"]
-    matched_tech = [kw for kw in all_tech_keywords if kw in role_lower]
-    tech_label = ", ".join(matched_tech).upper() if matched_tech else "relevant tech stack"
-
-    # Build seniority rule
-    if is_senior:
-        seniority_bonus = "If the role is SENIOR, LEAD, STAFF, PRINCIPAL, or requires 5+ years experience: add +3.0"
-        seniority_penalty = "If the role is explicitly JUNIOR, ENTRY-LEVEL, or INTERN with no senior path: subtract -3.0"
-    elif is_junior:
-        seniority_bonus = "If the role is JUNIOR, ENTRY-LEVEL, ASSOCIATE, INTERN, or allows 0-2 years experience: add +3.0"
-        seniority_penalty = "If the role requires SENIOR, STAFF, LEAD, PRINCIPAL, or 5+ years experience: subtract -5.0"
-    else:
-        seniority_bonus = "If the seniority level closely matches the target role: add +2.0"
-        seniority_penalty = "If the seniority level is a clear mismatch (e.g. intern when looking for mid-level): subtract -3.0"
-
-    prompt = f"""You are a job evaluation expert. The user is searching for: "{role}".
-Score the given job opportunity from 0 to 10 based on how well it matches the user's target role. Apply these rules strictly:
-- Base score starts at 5.0.
-- {("If the role is clearly REMOTE or allows remote work: add +3.0" if wants_remote else "Remote/onsite is not a preference factor for this search.")}
-- {seniority_bonus}
-- If the role focuses on {tech_label} or closely related technologies: add +2.0
-- {seniority_penalty}
-- If the role is strictly ONSITE or requires relocation (and user wants remote): subtract -5.0
-- Clamp final score between 0.0 and 10.0.
-
-Return valid JSON with:
-{{
-  "score": float,
-  "passed": boolean (true if score >= 7.0 else false),
-  "reasons": [list of strings explaining the score breakdown]
-}}"""
-
+    """Build a simple, generic scoring prompt from the target role. No hardcoded assumptions."""
     return {
         "min_passing_score": 7.0,
-        "matched_tech": matched_tech,
-        "is_senior": is_senior,
-        "is_junior": is_junior,
-        "wants_remote": wants_remote,
-        "scoring_criteria_prompt": prompt
+        "target_role": role,
+        "scoring_criteria_prompt": f"""You are a job matching expert. The user is looking for: "{role}".
+
+Score the job from 0 to 10 based on how well it matches what the user is looking for.
+Consider title match, seniority fit, tech stack relevance, location compatibility, and overall alignment.
+Use your own judgement — only penalize things that clearly conflict with the user's search intent.
+
+Return valid JSON:
+{{
+  "score": float (0.0 to 10.0),
+  "passed": boolean (true if score >= 7.0),
+  "reasons": [short strings explaining each scoring factor]
+}}"""
     }
 
 SCORING_RULES = _build_scoring_rules(_TARGET_ROLE)

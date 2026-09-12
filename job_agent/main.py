@@ -36,8 +36,7 @@ def run_pipeline(
     role = target_role or SEARCH_CONFIG["target_role"]
     AGENT_RULES["dry_run"] = dry_run
 
-    # Always rebuild the LinkedIn search URL AND scoring rules from the active role
-    # so the dashboard input field actually controls what gets searched & how it's scored
+    # Rebuild LinkedIn search URL and scoring prompt from the active role
     from urllib.parse import quote
     from config import _build_scoring_rules
     import config as _config_module
@@ -49,12 +48,9 @@ def run_pipeline(
             site["url"] = f"https://www.linkedin.com/jobs/search?keywords={quote(role)}&location=Worldwide"
             logger.info("LinkedIn search URL: %s", site["url"])
 
-    # Rebuild scoring rules to match the role (e.g. "Senior" search won't penalize Senior roles)
-    new_rules = _build_scoring_rules(role)
-    _config_module.SCORING_RULES = new_rules
-    logger.info("Scoring rules rebuilt for role '%s' (is_senior=%s, is_junior=%s, wants_remote=%s, tech=%s)",
-                role, new_rules["is_senior"], new_rules["is_junior"], new_rules["wants_remote"],
-                new_rules.get("matched_tech", []))
+    # Rebuild scoring rules — generic prompt adapts to whatever the user typed
+    _config_module.SCORING_RULES = _build_scoring_rules(role)
+    logger.info("Scoring prompt set for role: '%s'", role)
 
     if reset_state:
         logger.info("Resetting state.json history for a clean-slate run...")
