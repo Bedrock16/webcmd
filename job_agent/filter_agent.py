@@ -194,42 +194,64 @@ Scoring Rules:
 
     def _score_with_fallback_rules(self, job: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Deterministic rule-based scoring engine matching config.py weights:
-        - Base: 5.0
-        - Remote: +3.0
-        - Junior/Entry: +3.0
-        - Python/Django/FastAPI: +2.0
-        - Senior/Lead/Staff: -5.0
-        - Onsite/relocation: -5.0
+        Deterministic rule-based scoring engine that adapts dynamically
+        to the target role from SCORING_RULES (is_senior, is_junior, wants_remote, matched_tech).
         """
         text = f"{job.get('title', '')} {job.get('snippet', '')} {job.get('description', '')} {job.get('location', '')} {json.dumps(job.get('criteria', {}))}".lower()
         score = 5.0
         reasons = ["Base score: +5.0"]
 
-        # Check remote (+3)
-        if any(term in text for term in ["remote", "worldwide", "anywhere", "telecommute"]):
+        is_senior_search = SCORING_RULES.get("is_senior", False)
+        is_junior_search = SCORING_RULES.get("is_junior", False)
+        wants_remote = SCORING_RULES.get("wants_remote", True)
+        matched_tech = SCORING_RULES.get("matched_tech", [])
+
+        # Check remote (+3) — only if user wants remote
+        if wants_remote and any(term in text for term in ["remote", "worldwide", "anywhere", "telecommute"]):
             score += 3.0
-            reasons.append("+3.0: 100% Remote position")
+            reasons.append("+3.0: Remote position matches preference")
 
-        # Check junior/entry (+3)
-        if any(term in text for term in ["junior", "entry", "associate", "graduate", "intern", "0-2"]):
-            score += 3.0
-            reasons.append("+3.0: Junior/entry-level role")
+        # Seniority scoring — adapts to what the user is looking for
+        if is_senior_search:
+            # User wants Senior roles: reward Senior, penalize Junior-only
+            if any(term in text for term in ["senior", "sr.", "lead", "principal", "staff", "head of", "director", "architect"]):
+                score += 3.0
+                reasons.append("+3.0: Senior/Lead level matches target")
+            if any(term in text for term in ["junior", "entry", "intern", "graduate"]):
+                has_senior_too = any(term in text for term in ["senior", "sr.", "lead", "principal", "staff"])
+                if not has_senior_too:
+                    score -= 3.0
+                    reasons.append("-3.0: Junior/entry-level role (user wants Senior)")
+        elif is_junior_search:
+            # User wants Junior roles: reward Junior, penalize Senior
+            if any(term in text for term in ["junior", "entry", "associate", "graduate", "intern", "0-2"]):
+                score += 3.0
+                reasons.append("+3.0: Junior/entry-level role")
+            if any(term in text for term in ["senior", "sr.", "lead", "principal", "staff", "head of", "director"]):
+                score -= 5.0
+                reasons.append("-5.0: Requires Senior/Lead experience (user wants Junior)")
+        else:
+            # Mid-level / unspecified — mild bonus for seniority match
+            if any(term in text for term in ["mid", "middle", "intermediate", "2-5", "3-5"]):
+                score += 2.0
+                reasons.append("+2.0: Mid-level role matches target")
 
-        # Check Python stack (+2)
-        if any(term in text for term in ["python", "fastapi", "django", "flask"]):
-            score += 2.0
-            reasons.append("+2.0: Core Python tech stack")
+        # Tech stack scoring — uses dynamically detected keywords from the role
+        if matched_tech:
+            if any(tech in text for tech in matched_tech):
+                score += 2.0
+                matched = [t for t in matched_tech if t in text]
+                reasons.append(f"+2.0: Tech stack match ({', '.join(matched)})")
+        else:
+            # Fallback: generic tech detection
+            if any(term in text for term in ["python", "javascript", "react", "node", "java", "go", "rust", "typescript"]):
+                score += 1.0
+                reasons.append("+1.0: Relevant tech stack detected")
 
-        # Check senior penalty (-5)
-        if any(term in text for term in ["senior", "sr.", "lead", "principal", "staff", "head of", "director"]):
+        # Onsite penalty — only if user wants remote
+        if wants_remote and any(term in text for term in ["onsite only", "must be located in", "relocation required"]):
             score -= 5.0
-            reasons.append("-5.0: Requires Senior/Lead/Staff experience")
-
-        # Check onsite penalty (-5)
-        if any(term in text for term in ["onsite only", "must be located in", "relocation required"]):
-            score -= 5.0
-            reasons.append("-5.0: Mandatory onsite/relocation")
+            reasons.append("-5.0: Mandatory onsite/relocation (user wants remote)")
 
         score = max(0.0, min(10.0, score))
         passed = score >= self.min_passing_score
@@ -239,3 +261,4 @@ Scoring Rules:
             "passed": passed,
             "reasons": reasons
         }
+
