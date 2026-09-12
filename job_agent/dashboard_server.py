@@ -29,6 +29,8 @@ RUN_STATUS = {
     "last_run_time": None,
     "active_role": "Remote Junior Python Developer",
     "current_url": "https://www.linkedin.com/jobs/search?keywords=Python%20Junior&location=Remote",
+    "linkedin_url": "https://www.linkedin.com/jobs",
+    "naukri_url": "https://www.naukri.com/",
     "logs": []
 }
 LOG_LOCK = threading.Lock()
@@ -40,14 +42,23 @@ def append_log(line: str):
         RUN_STATUS["logs"].append(stripped)
         if len(RUN_STATUS["logs"]) > 500:
             RUN_STATUS["logs"].pop(0)
+        
+        url_extracted = None
         if "Navigating to: " in stripped:
             parts = stripped.split("Navigating to: ")
             if len(parts) > 1:
-                RUN_STATUS["current_url"] = parts[1].strip()
+                url_extracted = parts[1].strip()
         elif "Arrived at '" in stripped:
             parts = stripped.split("Arrived at '")
             if len(parts) > 1:
-                RUN_STATUS["current_url"] = parts[1].split("'")[0].strip()
+                url_extracted = parts[1].split("'")[0].strip()
+
+        if url_extracted:
+            RUN_STATUS["current_url"] = url_extracted
+            if "linkedin.com" in url_extracted:
+                RUN_STATUS["linkedin_url"] = url_extracted
+            elif "naukri.com" in url_extracted:
+                RUN_STATUS["naukri_url"] = url_extracted
 
 
 def execute_agent_job(role: str, dry_run: bool = True):
@@ -138,8 +149,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                     subprocess.Popen([
                         str(chrome_bin),
                         f"--app={target_url}",
-                        "--window-size=840,620",
-                        "--window-position=120,80"
+                        "--window-size=1200,650",
+                        "--window-position=80,60"
                     ])
                     opened = True
                 except Exception as exc:
@@ -196,6 +207,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             "agent_running": RUN_STATUS["is_running"],
             "active_role": RUN_STATUS["active_role"],
             "current_url": RUN_STATUS.get("current_url", "https://www.linkedin.com/jobs/search?keywords=Python%20Junior&location=Remote"),
+            "linkedin_url": RUN_STATUS.get("linkedin_url", "https://www.linkedin.com/jobs"),
+            "naukri_url": RUN_STATUS.get("naukri_url", "https://www.naukri.com/"),
             "last_exit_code": RUN_STATUS["last_exit_code"],
             "webcmd": {
                 "version": "0.8.4",

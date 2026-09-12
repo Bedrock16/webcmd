@@ -3,24 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Webcmd Live Browser Viewport</title>
+  <title>Webcmd Parallel Dual-Browser Viewport (LinkedIn & Naukri)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-black: #F6F9FC;
-      --bg-surface: #FFFFFF;
-      --bg-surface-hover: #F8FAFC;
-      --border-color: #E3E8EE;
-      --border-accent: #CBD5E1;
-      --lime: #635BFF;
-      --lime-glow: rgba(99, 91, 255, 0.25);
-      --cyan: #0080FF;
-      --text-main: #0A2540;
-      --text-muted: #627D98;
+      --bg-black: #08090C;
+      --bg-surface: #101218;
+      --bg-surface-hover: #171A23;
+      --border-color: #212530;
+      --border-accent: #2E3445;
+      --lime: #10B981;
+      --lime-glow: rgba(16, 185, 129, 0.25);
+      --cyan: #0A84FF;
+      --naukri-orange: #FF7518;
+      --linkedin-blue: #0A66C2;
+      --text-main: #F3F4F6;
+      --text-muted: #8E9BAE;
       --font-mono: "JetBrains Mono", monospace;
-      --font-sans: "Inter", -apple-system, sans-serif;
+      --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, sans-serif;
     }
 
     * {
@@ -42,15 +44,16 @@
 
     /* Top Bar */
     .top-bar {
-      height: 44px;
+      height: 48px;
       background: var(--bg-surface);
       border-bottom: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 14px;
-      gap: 12px;
+      padding: 0 16px;
+      gap: 14px;
       z-index: 10;
+      flex-shrink: 0;
     }
 
     .window-dots {
@@ -63,6 +66,7 @@
       width: 10px;
       height: 10px;
       border-radius: 50%;
+      cursor: pointer;
     }
 
     .dot.red { background: #ef4444; }
@@ -77,56 +81,33 @@
       color: var(--lime);
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
     }
 
     .radar-dot {
-      width: 7px;
-      height: 7px;
+      width: 8px;
+      height: 8px;
       background-color: var(--lime);
       border-radius: 50%;
-      box-shadow: 0 0 8px var(--lime);
+      box-shadow: 0 0 10px var(--lime);
       animation: pulse-radar 1.5s infinite;
     }
 
     @keyframes pulse-radar {
       0% { transform: scale(0.95); opacity: 0.7; }
-      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px var(--lime); }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 14px var(--lime); }
       100% { transform: scale(0.95); opacity: 0.7; }
     }
 
-    .url-container {
-      flex: 1;
-      max-width: 480px;
-      background: #F8FAFC;
-      border: 1px solid var(--border-color);
-      border-radius: 6px;
-      padding: 4px 10px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .lock-icon {
-      color: #059669;
-      width: 12px;
-      height: 12px;
-      flex-shrink: 0;
-    }
-
-    .url-text {
+    .dual-badge {
       font-family: var(--font-mono);
-      font-size: 11px;
-      color: var(--text-muted);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      text-decoration: none;
-    }
-
-    .url-text:hover {
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
       color: var(--lime);
-      text-decoration: underline;
+      letter-spacing: 0.05em;
     }
 
     .actions-bar {
@@ -136,10 +117,10 @@
     }
 
     .action-btn {
-      background: #FFFFFF;
+      background: #171A23;
       border: 1px solid var(--border-color);
       color: var(--text-main);
-      padding: 5px 10px;
+      padding: 5px 12px;
       border-radius: 6px;
       font-family: var(--font-sans);
       font-size: 11px;
@@ -147,67 +128,154 @@
       cursor: pointer;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       transition: all 0.15s ease;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
     }
 
     .action-btn:hover {
-      background: #F8FAFC;
-      color: var(--lime);
+      background: #202431;
       border-color: var(--lime);
+      color: var(--lime);
     }
 
     .action-btn.active {
       border-color: var(--lime);
-      color: #FFFFFF;
+      color: #000;
       background: var(--lime);
     }
 
-    /* Stream Stage Viewport */
+    /* Dual Split Viewport Stage */
     .viewport-stage {
       flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 12px;
+      background: #050608;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .browser-panel {
+      display: flex;
+      flex-direction: column;
+      background: #0B0D13;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      min-height: 0;
+    }
+
+    .browser-panel-header {
+      height: 38px;
+      background: #12151E;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .panel-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .badge-linkedin {
+      color: #38BDF8;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .badge-naukri {
+      color: #FB923C;
+      background: rgba(251, 146, 60, 0.12);
+      border: 1px solid rgba(251, 146, 60, 0.3);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .panel-url-box {
+      flex: 1;
+      max-width: 380px;
+      background: #07080B;
+      border: 1px solid #1C202B;
+      border-radius: 5px;
+      padding: 3px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+    }
+
+    .panel-url-box svg {
+      width: 11px;
+      height: 11px;
+      color: #10B981;
+      flex-shrink: 0;
+    }
+
+    .panel-url-link {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-decoration: none;
+    }
+
+    .panel-url-link:hover {
+      color: #FFF;
+      text-decoration: underline;
+    }
+
+    .panel-body {
+      flex: 1;
       position: relative;
-      background: #020202;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: auto;
-      padding: 12px;
+      background: #000;
+      overflow: hidden;
+      padding: 6px;
+      min-height: 0;
     }
 
-    .image-wrapper {
-      position: relative;
+    .panel-img {
       max-width: 100%;
       max-height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid #1a1a1a;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
-      background: #0a0a0a;
-      transition: transform 0.2s ease;
-    }
-
-    #stream-img {
-      max-width: 100%;
-      max-height: calc(100vh - 84px);
       object-fit: contain;
       display: block;
+      border-radius: 4px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+      transition: opacity 0.15s ease;
     }
 
     /* Bottom Telemetry Bar */
     .bottom-bar {
-      height: 28px;
-      background: #080808;
+      height: 30px;
+      background: var(--bg-surface);
       border-top: 1px solid var(--border-color);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 14px;
+      padding: 0 16px;
       font-family: var(--font-mono);
       font-size: 10px;
       color: var(--text-muted);
+      flex-shrink: 0;
     }
 
     .telem-group {
@@ -216,17 +284,10 @@
       gap: 16px;
     }
 
-    .telem-item span {
-      color: #ccc;
-    }
-
-    .telem-item .val-lime {
-      color: var(--lime);
-    }
-
-    .telem-item .val-cyan {
-      color: var(--cyan);
-    }
+    .val-lime { color: var(--lime); }
+    .val-cyan { color: var(--cyan); }
+    .val-orange { color: #FB923C; }
+    .val-blue { color: #38BDF8; }
   </style>
 </head>
 <body>
@@ -234,57 +295,91 @@
   <header class="top-bar">
     <div class="window-dots">
       <span class="dot red" onclick="window.close()" title="Close"></span>
-      <span class="dot yellow" onclick="toggleFit()" title="Toggle Zoom"></span>
-      <span class="dot green" onclick="refreshNow()" title="Refresh"></span>
+      <span class="dot yellow" onclick="toggleLayout()" title="Toggle Layout"></span>
+      <span class="dot green" onclick="refreshNow()" title="Refresh Both"></span>
     </div>
 
     <div class="brand-title">
       <span class="radar-dot"></span>
-      <span>WEBCMD CHROMIUM LIVE</span>
-    </div>
-
-    <div class="url-container">
-      <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-      </svg>
-      <a id="active-url-link" href="#" target="_blank" class="url-text">Connecting to Webcmd runtime...</a>
+      <span>WEBCMD DUAL-BROWSER PARALLEL VIEWPORT</span>
+      <span class="dual-badge">SIDE-BY-SIDE LIVE</span>
     </div>
 
     <div class="actions-bar">
-      <button class="action-btn" id="btn-fit" onclick="toggleFit()">FIT VIEW</button>
+      <button class="action-btn" id="btn-layout" onclick="toggleLayout()">SPLIT 50/50</button>
       <button class="action-btn" onclick="refreshNow()">REFRESH</button>
     </div>
   </header>
 
-  <!-- VIEWPORT STAGE -->
+  <!-- DUAL SPLIT VIEWPORT STAGE -->
   <main class="viewport-stage" id="stage">
-    <div class="image-wrapper" id="img-wrapper">
-      <img id="stream-img" src="live_screen.png" alt="Live Webcmd Screen" />
+    <!-- LEFT PANEL: LINKEDIN -->
+    <div class="browser-panel" id="panel-linkedin">
+      <div class="browser-panel-header">
+        <div class="panel-brand">
+          <span class="badge-linkedin">LINKEDIN</span>
+          <span style="font-size: 10px; color: var(--text-muted);">WORKER 1</span>
+        </div>
+        <div class="panel-url-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <a id="linkedin-url-link" href="#" target="_blank" class="panel-url-link">https://www.linkedin.com/jobs</a>
+        </div>
+      </div>
+      <div class="panel-body">
+        <img id="stream-img-linkedin" class="panel-img" src="live_screen_linkedin.png" alt="LinkedIn Live Viewport" onerror="this.src='live_screen.png'" />
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: NAUKRI -->
+    <div class="browser-panel" id="panel-naukri">
+      <div class="browser-panel-header">
+        <div class="panel-brand">
+          <span class="badge-naukri">NAUKRI</span>
+          <span style="font-size: 10px; color: var(--text-muted);">WORKER 2</span>
+        </div>
+        <div class="panel-url-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <a id="naukri-url-link" href="#" target="_blank" class="panel-url-link">https://www.naukri.com/</a>
+        </div>
+      </div>
+      <div class="panel-body">
+        <img id="stream-img-naukri" class="panel-img" src="live_screen_naukri.png" alt="Naukri Live Viewport" onerror="this.src='live_screen.png'" />
+      </div>
     </div>
   </main>
 
   <!-- BOTTOM STATUS TELEMETRY -->
   <footer class="bottom-bar">
     <div class="telem-group">
-      <div class="telem-item">DAEMON: <span class="val-lime">PORT 9777</span></div>
-      <div class="telem-item">ENGINE: <span>STEALTH CHROMIUM</span></div>
-      <div class="telem-item">POLL RATE: <span id="fps-val" class="val-cyan">1.0 Hz</span></div>
+      <div>ENGINE: <span class="val-lime">STEALTH CHROMIUM DUAL</span></div>
+      <div>LINKEDIN: <span class="val-blue" id="linkedin-stat">ACTIVE</span></div>
+      <div>NAUKRI: <span class="val-orange" id="naukri-stat">ACTIVE</span></div>
     </div>
     <div class="telem-group">
-      <div class="telem-item">LAST CAPTURE: <span id="last-updated">-</span></div>
-      <div class="telem-item">STATUS: <span id="agent-state" class="val-lime">READY</span></div>
+      <div>POLL: <span class="val-cyan">1.0 Hz</span></div>
+      <div>LAST SYNC: <span id="last-updated" style="color: #ccc;">-</span></div>
+      <div>STATUS: <span id="agent-state" class="val-lime">READY</span></div>
     </div>
   </footer>
 
   <script>
-    let isFit = true;
+    let isStacked = false;
     let refreshTimer = null;
 
     function refreshNow() {
-      const img = document.getElementById("stream-img");
       const timestamp = Date.now();
-      img.src = "live_screen.png?t=" + timestamp;
+      const imgLinkedin = document.getElementById("stream-img-linkedin");
+      const imgNaukri = document.getElementById("stream-img-naukri");
+
+      imgLinkedin.src = "live_screen_linkedin.png?t=" + timestamp;
+      imgNaukri.src = "live_screen_naukri.png?t=" + timestamp;
+
       document.getElementById("last-updated").textContent = new Date().toLocaleTimeString();
       fetchMeta();
     }
@@ -295,42 +390,49 @@
         if (res.ok) {
           const data = await res.json();
           const stateEl = document.getElementById("agent-state");
+
           if (data.agent_running) {
-            stateEl.textContent = "EXECUTING...";
+            stateEl.textContent = "EXECUTING (PARALLEL)...";
             stateEl.className = "val-cyan";
           } else {
             stateEl.textContent = "IDLE / READY";
             stateEl.className = "val-lime";
           }
-          if (data.current_url) {
-            const link = document.getElementById("active-url-link");
-            link.textContent = data.current_url;
-            link.href = data.current_url;
+
+          if (data.linkedin_url) {
+            const link = document.getElementById("linkedin-url-link");
+            link.textContent = data.linkedin_url;
+            link.href = data.linkedin_url;
+          }
+
+          if (data.naukri_url) {
+            const link = document.getElementById("naukri-url-link");
+            link.textContent = data.naukri_url;
+            link.href = data.naukri_url;
           }
         }
       } catch (e) {}
     }
 
-    function toggleFit() {
-      isFit = !isFit;
-      const img = document.getElementById("stream-img");
-      const btn = document.getElementById("btn-fit");
-      if (isFit) {
-        img.style.maxHeight = "calc(100vh - 84px)";
-        img.style.maxWidth = "100%";
-        btn.classList.remove("active");
-        btn.textContent = "FIT VIEW";
+    function toggleLayout() {
+      isStacked = !isStacked;
+      const stage = document.getElementById("stage");
+      const btn = document.getElementById("btn-layout");
+
+      if (isStacked) {
+        stage.style.gridTemplateColumns = "1fr";
+        stage.style.gridTemplateRows = "1fr 1fr";
+        btn.textContent = "STACKED";
       } else {
-        img.style.maxHeight = "none";
-        img.style.maxWidth = "none";
-        btn.classList.add("active");
-        btn.textContent = "100% SCALE";
+        stage.style.gridTemplateColumns = "1fr 1fr";
+        stage.style.gridTemplateRows = "none";
+        btn.textContent = "SPLIT 50/50";
       }
     }
 
-    // Auto-refresh every 1.2 seconds for real-time live preview
+    // Auto-refresh every 1000ms for smooth live updates
     refreshNow();
-    refreshTimer = setInterval(refreshNow, 1200);
+    refreshTimer = setInterval(refreshNow, 1000);
   </script>
 </body>
 </html>

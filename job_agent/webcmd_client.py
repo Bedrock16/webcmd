@@ -44,7 +44,8 @@ class WebcmdClient:
         session_name: str = "job-pilot-session",
         use_real_chrome: bool = True,
         window_pos: str = "80,60",
-        window_size: str = "1280,850"
+        window_size: str = "1280,850",
+        screenshot_file: Optional[str] = None
     ):
         self.session_name = session_name
         self.session_id: Optional[str] = None
@@ -52,6 +53,7 @@ class WebcmdClient:
         self.chrome_executable = AGENT_RULES.get("chrome_executable") or find_chrome_executable()
         self.window_pos = window_pos
         self.window_size = window_size
+        self.screenshot_file = screenshot_file
 
         # Playwright runtime handles
         self.playwright: Optional[Any] = None
@@ -547,11 +549,15 @@ return { dismissed: dismissedCount };
             return 0
 
     def capture_screenshot(self) -> bool:
-        """Capture current viewport to live_screen.png and update dashboard preview."""
+        """Capture current viewport to live_screen.png and specific screenshot_file."""
         if self.use_real_chrome and self.page:
             try:
+                base_dir = Path(AGENT_RULES.get("preview_file", "dashboard/live_screen.png")).parent
+                base_dir.mkdir(parents=True, exist_ok=True)
+                if self.screenshot_file:
+                    custom_file = base_dir / self.screenshot_file
+                    self.page.screenshot(path=str(custom_file))
                 dest_file = Path(AGENT_RULES.get("preview_file", "dashboard/live_screen.png"))
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
                 self.page.screenshot(path=str(dest_file))
                 return True
             except Exception:

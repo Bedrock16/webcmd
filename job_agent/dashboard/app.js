@@ -322,9 +322,9 @@ function closeModal(event) {
 }
 
 function openPopoutWindow() {
-  const width = 840;
-  const height = 620;
-  const left = Math.max(0, window.screen.width - width - 40);
+  const width = 1200;
+  const height = 650;
+  const left = Math.max(0, Math.floor((window.screen.width - width) / 2));
   const top = 60;
   window.open(
     "/preview.html",

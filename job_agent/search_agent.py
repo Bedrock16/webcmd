@@ -86,10 +86,12 @@ class SearchAgent:
             session_name = f"job-pilot-{site_name.lower().replace(' ', '-')}"
 
             logger.info(">>> Launching parallel browser for [%s] at screen position %s...", site_name, layout["pos"])
+            screenshot_name = f"live_screen_{site_name.lower().replace(' ', '_')}.png"
             worker_client = WebcmdClient(
                 session_name=session_name,
                 window_pos=layout["pos"],
-                window_size=layout["size"]
+                window_size=layout["size"],
+                screenshot_file=screenshot_name
             )
             try:
                 # Do NOT clean stale browsers inside worker - they would kill each other!
