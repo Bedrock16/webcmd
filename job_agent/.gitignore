@@ -1,0 +1,13 @@
+# Environment variables and secrets
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Runtime state (regenerated on each run)
+state.json
+
+# Live screenshots (generated during browser sessions)
+dashboard/live_screen.png

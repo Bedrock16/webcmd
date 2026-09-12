@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Webcmd Live Browser Viewport</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-black: #F6F9FC;
+      --bg-surface: #FFFFFF;
+      --bg-surface-hover: #F8FAFC;
+      --border-color: #E3E8EE;
+      --border-accent: #CBD5E1;
+      --lime: #635BFF;
+      --lime-glow: rgba(99, 91, 255, 0.25);
+      --cyan: #0080FF;
+      --text-main: #0A2540;
+      --text-muted: #627D98;
+      --font-mono: "JetBrains Mono", monospace;
+      --font-sans: "Inter", -apple-system, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-black);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Top Bar */
+    .top-bar {
+      height: 44px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .dot.red { background: #ef4444; }
+    .dot.yellow { background: #f59e0b; }
+    .dot.green { background: #10b981; }
+
+    .brand-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--lime);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .radar-dot {
+      width: 7px;
+      height: 7px;
+      background-color: var(--lime);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--lime);
+      animation: pulse-radar 1.5s infinite;
+    }
+
+    @keyframes pulse-radar {
+      0% { transform: scale(0.95); opacity: 0.7; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px var(--lime); }
+      100% { transform: scale(0.95); opacity: 0.7; }
+    }
+
+    .url-container {
+      flex: 1;
+      max-width: 480px;
+      background: #F8FAFC;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 4px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lock-icon {
+      color: #059669;
+      width: 12px;
+      height: 12px;
+      flex-shrink: 0;
+    }
+
+    .url-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-decoration: none;
+    }
+
+    .url-text:hover {
+      color: var(--lime);
+      text-decoration: underline;
+    }
+
+    .actions-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .action-btn {
+      background: #FFFFFF;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-family: var(--font-sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    .action-btn:hover {
+      background: #F8FAFC;
+      color: var(--lime);
+      border-color: var(--lime);
+    }
+
+    .action-btn.active {
+      border-color: var(--lime);
+      color: #FFFFFF;
+      background: var(--lime);
+    }
+
+    /* Stream Stage Viewport */
+    .viewport-stage {
+      flex: 1;
+      position: relative;
+      background: #020202;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .image-wrapper {
+      position: relative;
+      max-width: 100%;
+      max-height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #1a1a1a;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+      background: #0a0a0a;
+      transition: transform 0.2s ease;
+    }
+
+    #stream-img {
+      max-width: 100%;
+      max-height: calc(100vh - 84px);
+      object-fit: contain;
+      display: block;
+    }
+
+    /* Bottom Telemetry Bar */
+    .bottom-bar {
+      height: 28px;
+      background: #080808;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .telem-group {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .telem-item span {
+      color: #ccc;
+    }
+
+    .telem-item .val-lime {
+      color: var(--lime);
+    }
+
+    .telem-item .val-cyan {
+      color: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+  <!-- TOP TOOLBAR -->
+  <header class="top-bar">
+    <div class="window-dots">
+      <span class="dot red" onclick="window.close()" title="Close"></span>
+      <span class="dot yellow" onclick="toggleFit()" title="Toggle Zoom"></span>
+      <span class="dot green" onclick="refreshNow()" title="Refresh"></span>
+    </div>
+
+    <div class="brand-title">
+      <span class="radar-dot"></span>
+      <span>WEBCMD CHROMIUM LIVE</span>
+    </div>
+
+    <div class="url-container">
+      <svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <a id="active-url-link" href="#" target="_blank" class="url-text">Connecting to Webcmd runtime...</a>
+    </div>
+
+    <div class="actions-bar">
+      <button class="action-btn" id="btn-fit" onclick="toggleFit()">FIT VIEW</button>
+      <button class="action-btn" onclick="refreshNow()">REFRESH</button>
+    </div>
+  </header>
+
+  <!-- VIEWPORT STAGE -->
+  <main class="viewport-stage" id="stage">
+    <div class="image-wrapper" id="img-wrapper">
+      <img id="stream-img" src="live_screen.png" alt="Live Webcmd Screen" />
+    </div>
+  </main>
+
+  <!-- BOTTOM STATUS TELEMETRY -->
+  <footer class="bottom-bar">
+    <div class="telem-group">
+      <div class="telem-item">DAEMON: <span class="val-lime">PORT 9777</span></div>
+      <div class="telem-item">ENGINE: <span>STEALTH CHROMIUM</span></div>
+      <div class="telem-item">POLL RATE: <span id="fps-val" class="val-cyan">1.0 Hz</span></div>
+    </div>
+    <div class="telem-group">
+      <div class="telem-item">LAST CAPTURE: <span id="last-updated">-</span></div>
+      <div class="telem-item">STATUS: <span id="agent-state" class="val-lime">READY</span></div>
+    </div>
+  </footer>
+
+  <script>
+    let isFit = true;
+    let refreshTimer = null;
+
+    function refreshNow() {
+      const img = document.getElementById("stream-img");
+      const timestamp = Date.now();
+      img.src = "live_screen.png?t=" + timestamp;
+      document.getElementById("last-updated").textContent = new Date().toLocaleTimeString();
+      fetchMeta();
+    }
+
+    async function fetchMeta() {
+      try {
+        const res = await fetch("/api/status");
+        if (res.ok) {
+          const data = await res.json();
+          const stateEl = document.getElementById("agent-state");
+          if (data.agent_running) {
+            stateEl.textContent = "EXECUTING...";
+            stateEl.className = "val-cyan";
+          } else {
+            stateEl.textContent = "IDLE / READY";
+            stateEl.className = "val-lime";
+          }
+          if (data.current_url) {
+            const link = document.getElementById("active-url-link");
+            link.textContent = data.current_url;
+            link.href = data.current_url;
+          }
+        }
+      } catch (e) {}
+    }
+
+    function toggleFit() {
+      isFit = !isFit;
+      const img = document.getElementById("stream-img");
+      const btn = document.getElementById("btn-fit");
+      if (isFit) {
+        img.style.maxHeight = "calc(100vh - 84px)";
+        img.style.maxWidth = "100%";
+        btn.classList.remove("active");
+        btn.textContent = "FIT VIEW";
+      } else {
+        img.style.maxHeight = "none";
+        img.style.maxWidth = "none";
+        btn.classList.add("active");
+        btn.textContent = "100% SCALE";
+      }
+    }
+
+    // Auto-refresh every 1.2 seconds for real-time live preview
+    refreshNow();
+    refreshTimer = setInterval(refreshNow, 1200);
+  </script>
+</body>
+</html>

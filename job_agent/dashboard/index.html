@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JobPilot // Autonomous AI Browser Agent Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="antialiased">
+
+  <!-- TOP STATUS HEADER -->
+  <header class="top-nav">
+    <div class="nav-container">
+      <div class="brand-group">
+        <!-- Stripe Inspired Monogram -->
+        <svg class="brand-logo" width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <rect width="32" height="32" rx="8" fill="url(#stripe-logo-grad)" />
+          <path d="M9 16.5L14 21.5L23 11" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="stripe-logo-grad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#635BFF"/>
+              <stop offset="1" stop-color="#00D4FF"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="brand-text">
+          <span class="brand-title">WEBCMD <span class="text-lime">//</span> JOBPILOT</span>
+          <span class="brand-sub">AUTONOMOUS AGENT RUNTIME</span>
+        </div>
+      </div>
+
+      <div class="status-pill">
+        <span class="pulse-dot"></span>
+        <span class="mono-tag" id="system-status-text">WEBCMD v0.8.4 // STEALTH CHROMIUM CONNECTED</span>
+      </div>
+
+      <div class="nav-actions">
+        <button class="btn-ghost" id="refresh-btn" onclick="fetchState()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+          </svg>
+          SYNC STATE
+        </button>
+        <button class="btn-lime" id="header-scan-btn" onclick="triggerScanModal()">
+          + NEW AGENT SCAN
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO SECTION -->
+  <section class="hero-section">
+    <div class="hero-grid">
+      <div class="hero-content">
+        <div class="partner-badge">
+          <span class="badge-prefix">POWERED BY</span>
+          <span class="badge-core">WEBCMD BROWSER INFRA</span>
+        </div>
+        <h1 class="hero-title">
+          Autonomous Job Hunting <br />
+          <span class="text-lime typewriter-effect">Scrape &amp; AI Evaluation</span>
+        </h1>
+        <p class="hero-desc">
+          Automates live LinkedIn job discovery and intelligent AI evaluation (Qwen 3.5 Omni) using local stealth Chromium. Resume auto-apply is bypassed.
+        </p>
+      </div>
+
+      <!-- INTERACTIVE CONTROL DECK -->
+      <div class="control-deck">
+        <div class="deck-header">
+          <span class="deck-tag">AGENT CONTROL DECK</span>
+          <span class="badge-online" id="deck-status-badge">READY</span>
+        </div>
+        <div class="deck-body">
+          <div class="input-group">
+            <label class="input-label">TARGET SEARCH ROLE</label>
+            <input type="text" id="role-input" class="deck-input" value="Remote Junior Python Developer" placeholder="e.g. Remote Junior Python Developer" />
+          </div>
+
+          <div class="deck-row">
+            <label class="toggle-container">
+              <input type="checkbox" id="dry-run-toggle" checked />
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">SAFE MODE</span>
+            </label>
+            <span class="text-muted text-xs">Scrape &amp; AI evaluate only</span>
+          </div>
+
+          <div class="rule-pills">
+            <span class="rule-chip chip-green">+3.0 REMOTE</span>
+            <span class="rule-chip chip-green">+3.0 JUNIOR</span>
+            <span class="rule-chip chip-green">+2.0 PYTHON</span>
+            <span class="rule-chip chip-red">-5.0 SENIOR</span>
+            <span class="rule-chip chip-red">-5.0 ONSITE</span>
+          </div>
+
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-lime btn-block" id="run-agent-btn" onclick="launchAgentRun()" style="flex: 1;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+              RUN SCRAPE &amp; AI EVALUATION
+            </button>
+            <button class="action-btn" style="padding: 0 16px; font-size: 11px; border-color: #333; color: #888; background: #111; cursor: pointer;" onclick="resetDatabase()" title="Clear state.json to re-test all jobs from scratch">
+              RESET DB
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- METRIC KPI CARDS -->
+  <section class="kpi-section">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <span class="kpi-label">TOTAL JOBS SCRAPED</span>
+        <div class="kpi-value" id="kpi-total">0</div>
+        <span class="kpi-foot text-muted">Exclusively searching LinkedIn.com</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">QUALIFIED ROLES</span>
+        <div class="kpi-value text-lime" id="kpi-qualified">0</div>
+        <span class="kpi-foot text-muted">Passed score &ge; 7.0 threshold</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">FILTERED OUT</span>
+        <div class="kpi-value text-rose" id="kpi-skipped">0</div>
+        <span class="kpi-foot text-muted">Score &lt; 7.0 (criteria not met)</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">TARGET SOURCE</span>
+        <div class="kpi-value text-cyan" style="font-size: 1.3rem; font-family: var(--font-mono); line-height: 2rem;">LINKEDIN</div>
+        <span class="kpi-foot text-muted">Guest bypass active</span>
+      </div>
+      <div class="kpi-card">
+        <span class="kpi-label">PASS EFFICIENCY</span>
+        <div class="kpi-value text-lime" id="kpi-pass-rate">0%</div>
+        <span class="kpi-foot text-muted">Approval conversion</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN SPLIT WORKSPACE -->
+  <main class="workspace-section">
+    <div class="workspace-grid">
+
+      <!-- LEFT: APPLICATIONS TABLE & FILTER TABS -->
+      <section class="panel table-panel">
+        <div class="panel-header">
+          <div class="tab-group">
+            <button class="tab-btn active" id="tab-all" onclick="setFilter('all')">ALL POSTINGS (<span id="count-all">0</span>)</button>
+            <button class="tab-btn" id="tab-applied" onclick="setFilter('applied')">QUALIFIED (<span id="count-applied">0</span>)</button>
+            <button class="tab-btn" id="tab-skipped" onclick="setFilter('skipped')">FILTERED (<span id="count-skipped">0</span>)</button>
+          </div>
+          <div class="table-search">
+            <input type="text" id="table-search-input" class="search-input" placeholder="Search company or role..." oninput="renderTable()" />
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="job-table">
+            <thead>
+              <tr>
+                <th>STATUS</th>
+                <th>ROLE & COMPANY</th>
+                <th>SCORE</th>
+                <th>LOCATION</th>
+                <th>TIMESTAMP</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody id="job-table-body">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- RIGHT: LIVE BROWSER PREVIEW & TERMINAL CONSOLE -->
+      <aside class="panel side-panel">
+        <!-- REAL LIVE BROWSER WINDOW -->
+        <div class="browser-preview-card">
+          <div class="browser-preview-header">
+            <div class="browser-window-controls">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <div class="browser-url-bar">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+              <span id="live-browser-url" class="browser-url-text">https://www.linkedin.com/jobs/search?keywords=Python%20Junior&amp;location=Remote</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-popout" onclick="openPopoutWindow()" title="Open small floating browser window">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                FLOAT WINDOW
+              </button>
+              <button class="btn-popout" onclick="openDesktopWindow()" title="Open dedicated Chromium mini desktop window" style="border-color: rgba(56, 189, 248, 0.4); color: var(--cyan);">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                DESKTOP MINI
+              </button>
+            </div>
+          </div>
+          <div class="browser-viewport">
+            <img id="live-screen-img" src="live_screen.png" alt="Live Browser Viewport" />
+            <div class="live-rec-badge">
+              <span class="pulse-dot"></span> LIVE CHROMIUM
+            </div>
+          </div>
+        </div>
+        <!-- LIVE TERMINAL -->
+        <div class="terminal-card">
+          <div class="terminal-header">
+            <div class="terminal-dots">
+              <span class="dot red"></span>
+              <span class="dot yellow"></span>
+              <span class="dot green"></span>
+            </div>
+            <span class="terminal-title">WEBCMD AGENT LOG STREAM</span>
+            <button class="terminal-clear" onclick="clearLogs()">CLEAR</button>
+          </div>
+          <div class="terminal-body" id="terminal-logs">
+            <div class="log-entry text-muted">[INITIALIZING] Webcmd v0.8.4 bridge...</div>
+            <div class="log-entry text-lime">[DOCTOR] Browser bridge and daemon verified healthy.</div>
+            <div class="log-entry">[READY] Listening for autonomous browser workflow events...</div>
+          </div>
+        </div>
+
+        <!-- TELEMETRY & RUNTIME STATS -->
+        <div class="telemetry-card">
+          <div class="card-header-clean">
+            <span class="card-title-clean">WEBCMD BROWSER RUNTIME</span>
+            <span class="status-live-tag">CONNECTED</span>
+          </div>
+          <div class="telemetry-list">
+            <div class="telem-row">
+              <span class="telem-label">BROWSER ENGINE</span>
+              <span class="telem-val">Stealth Chromium 146.0</span>
+            </div>
+            <div class="telem-row">
+              <span class="telem-label">WEBCMD DAEMON</span>
+              <span class="telem-val text-lime">Port 9777 (Healthy)</span>
+            </div>
+            <div class="telem-row">
+              <span class="telem-label">CAPTCHA SAFETY</span>
+              <span class="telem-val text-lime">ACTIVE (Auto-Pause)</span>
+            </div>
+            <div class="telem-row">
+              <span class="telem-label">RESUME UPLOADER</span>
+              <span class="telem-val">In-Memory QuickJS Buffer</span>
+            </div>
+            <div class="telem-row">
+              <span class="telem-label">HUMAN DELAY</span>
+              <span class="telem-val">2.0s – 5.0s Jitter</span>
+            </div>
+            <div class="telem-row">
+              <span class="telem-label">STATE DATABASE</span>
+              <span class="telem-val text-cyan">state.json (Deduplicated)</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- MODAL FOR JOB DETAILS -->
+  <div class="modal-overlay" id="detail-modal" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="modal-job-title">Job Title</h3>
+          <span class="modal-company" id="modal-job-company">Company Name</span>
+        </div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-meta-grid">
+          <div class="meta-box">
+            <span class="meta-label">SMART SCORE</span>
+            <span class="meta-value text-lime" id="modal-job-score">8.0 / 10</span>
+          </div>
+          <div class="meta-box">
+            <span class="meta-label">STATUS</span>
+            <span class="meta-value" id="modal-job-status">APPLIED</span>
+          </div>
+          <div class="meta-box">
+            <span class="meta-label">RECORDED AT</span>
+            <span class="meta-value" id="modal-job-time">2026-09-12 12:00:00</span>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="section-heading">EVALUATION BREAKDOWN & REASONS</h4>
+          <ul class="reasons-list" id="modal-job-reasons"></ul>
+        </div>
+
+        <div class="detail-section">
+          <h4 class="section-heading">SOURCE POSTING</h4>
+          <a class="modal-url" id="modal-job-url" href="#" target="_blank" rel="noopener">Open Live Job Page &rarr;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
