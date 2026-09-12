@@ -1,116 +1,146 @@
-# Autonomous Job Hunting AI Agent
+# 🚀 Autonomous Job Hunting AI Agent (Webcmd JobPilot)
 
-An intelligent, autonomous AI agent that searches job boards, scores candidate roles with an LLM, and automatically applies using **Webcmd** as its browser automation layer.
+> **An intelligent, autonomous AI agent that searches job boards, scores candidate roles with an LLM, and automatically applies using Webcmd & Playwright as its browser automation layer.**
 
 ---
 
-## Architecture Overview
-
-The system follows a modular 3-stage pipeline:
+## 🏗️ 3-Stage Pipeline Architecture
 
 ```
-[User Instructions & Profile (config.py)]
-                │
-                ▼
-      STAGE 1: Search & Scrape (search_agent.py)
-      - Navigates live job boards (RemoteOK, WeWorkRemotely, HackerNews)
-      - Types queries & dismisses cookie banners
-      - Scrapes Title, Company, Location, and Job URL
-                │
-                ▼
-      STAGE 2: Smart Filter (filter_agent.py)
-      - Deduplicates URLs against state.json
-      - Evaluates roles via OpenAI LLM (or fallback rubric engine)
-      - Scores roles 0 to 10 (+3 Remote, +3 Junior, -5 Senior, -5 Onsite)
-      - Keeps only high-match candidates (Score >= 7.0)
-                │
-                ▼
-      STAGE 3: Auto-Apply (apply_agent.py)
-      - Navigates to application forms via Webcmd
-      - Maps profile fields (Name, Email, Phone, Links)
-      - Uploads resume document (in-memory buffer payload)
-      - Safety Stop: Pauses and alerts on CAPTCHA or custom essays
-      - Records results to state.json
+[Candidate Profile & Settings (config.py)]
+                   │
+                   ▼
+         STAGE 1: Search & Scrape (search_agent.py & webcmd_client.py)
+         - Launches dual parallel browser sessions (LinkedIn & Naukri)
+         - Navigates live job boards & dismisses cookie banners
+         - Scrapes Title, Company, Location, Job URL, and Description
+                   │
+                   ▼
+         STAGE 2: Smart Filter & LLM Scoring (filter_agent.py)
+         - Deduplicates URLs against state.json (never reapplies)
+         - Evaluates roles via LLM (OpenAI / OpenRouter / Qwen or rule engine)
+         - Scores roles 0 to 10 (+3 Target keywords, -5 mismatches)
+         - Keeps only qualified candidates (Score >= 7.0)
+                   │
+                   ▼
+         STAGE 3: Autonomous Form Auto-Fill (apply_agent.py)
+         - Navigates to application forms via Webcmd browser client
+         - Injects profile info (Full name, Email, Phone, Social links)
+         - Injects resume document buffer (sample_resume.pdf)
+         - Safety Stop: Pauses and records to state.json on CAPTCHA / long essays
+                   │
+                   ▼
+         REAL-TIME DASHBOARD (dashboard_server.py & dashboard/)
+         - Local web server (http://localhost:8080)
+         - Real-time live log streaming and browser URL tracker
+         - Quick trigger for agent scans & state.json analytics
 ```
 
 ---
 
-## File Structure
+## ⚡ How Webcmd is Used
 
-- `main.py` — Orchestrator loop connecting all 3 stages with guaranteed session cleanup.
-- `webcmd_client.py` — High-level Python abstraction over Webcmd CLI (sessions, scripts, snapshots, file uploads).
-- `search_agent.py` — Job board scrapers and search bar interaction.
-- `filter_agent.py` — LLM scoring engine and duplicate protection via `state.json`.
-- `apply_agent.py` — Form filling, resume upload, and safety rule enforcement.
-- `config.py` — User profile, target criteria, scoring weights, and API keys.
-- `state.json` — Persistent database of applied, skipped, and paused jobs.
-- `sample_resume.pdf` — Sample PDF file used for file input upload.
+[Webcmd](https://webcmd.dev) provides the browser infrastructure that makes this agent reliable, fast, and token-efficient:
+1. **Stealth Browser Sessions**: Manages browser sessions without triggering anti-bot heuristics, handling headless or visible Chrome processes cleanly.
+2. **Dynamic SPA Navigation**: Overcomes complex single-page apps (SPAs) like LinkedIn and Naukri, waiting for dynamic DOM rendering and handling infinite scrolls.
+3. **Session Lifecycle Control**: Implemented in [webcmd_client.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/webcmd_client.py) to terminate orphaned processes and establish fresh, clean sessions on every run.
+4. **Resilient Form Interaction**: Locates standard input selectors, selects files, and fills input trees reliably.
 
 ---
 
-## Prerequisites
+## 📁 File Structure
 
-1. **Python 3.10+**: Ensure Python is installed (`python --version`).
-2. **Webcmd CLI**: Must be installed and healthy:
-   ```bash
-   webcmd --version
-   webcmd doctor
-   ```
-   Ensure `webcmd doctor` reports green status for the browser runtime and daemon.
-
----
-
-## Installation & Setup
-
-1. Navigate to the project directory:
-   ```bash
-   cd C:\Users\athar\.gemini\antigravity-ide\scratch\job_agent
-   ```
-
-2. Install Python dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Configure your environment variables:
-   Create a `.env` file in the project folder:
-   ```env
-   OPENAI_API_KEY=your_openai_api_key_here
-   OPENAI_MODEL=gpt-4o-mini
-   ```
-   *(Note: If no OpenAI key is set, the agent automatically falls back to an internal deterministic rubric matching the scoring rules in `config.py`.)*
-
-4. Personalize `config.py`:
-   - Edit `USER_PROFILE` with your name, contact info, LinkedIn, and resume path.
-   - Adjust `SCORING_RULES` weights if you have different preferences.
+- [main.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/main.py) — Master orchestrator running Stages 1, 2, and 3.
+- [webcmd_client.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/webcmd_client.py) — Browser abstraction wrapping Webcmd CLI and Playwright Chromium.
+- [search_agent.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/search_agent.py) — Multi-browser parallel search and card scraping engine.
+- [filter_agent.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/filter_agent.py) — LLM scoring engine and duplicate protection via `state.json`.
+- [apply_agent.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/apply_agent.py) — Form filling, resume upload, and safety rule enforcement.
+- [config.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/config.py) — Candidate profile, target criteria, scoring prompt builder, and API keys.
+- [dashboard_server.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/dashboard_server.py) — HTTP REST backend powering the real-time web UI.
+- [dashboard/](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/dashboard) — Glassmorphic frontend dashboard (`index.html`, `style.css`, `app.js`).
+- [state.json](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/state.json) — Persistent database of applied, skipped, and paused jobs.
+- [sample_resume.pdf](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/sample_resume.pdf) — Resume PDF payload uploaded to job forms.
 
 ---
 
-## Running the Agent
+## 🚀 Getting Started
 
-### Dry-Run Mode (Recommended for testing)
-Fills in form fields and tests the pipeline without clicking the final submit button:
+### 1. Prerequisites
+- Python 3.10+
+- Node.js 20.6+ (for `webcmd`)
+- Google Chrome or Chromium
+
+### 2. Verify Webcmd CLI
+```bash
+webcmd --version
+webcmd doctor
+```
+
+### 3. Install Dependencies
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
+
+### 4. Configure `.env`
+Create `.env` inside `job_agent/`:
+```env
+OPENAI_API_KEY=your_api_key_here
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+OPENAI_MODEL=qwen/qwen3.5-omni-plus:free
+```
+*(If no API key is configured, an automatic rule-based rubric scoring system will be used seamlessly.)*
+
+### 5. Customize Profile
+Update your details in [config.py](file:///c:/Users/athar/.gemini/antigravity-ide/scratch/webcmd/job_agent/config.py):
+- Name, contact info, LinkedIn URL
+- Absolute path to your resume PDF
+
+---
+
+## 💻 Usage
+
+### Web Dashboard (Interactive GUI)
+Start the dashboard server:
+```bash
+python dashboard_server.py
+```
+Open [http://localhost:8080](http://localhost:8080) in your browser. From here you can:
+- Trigger scans for any role
+- Monitor live logs as browsers navigate
+- Inspect job statistics and state history
+
+### CLI Modes
+
+#### Dry-Run Mode (Recommended for testing)
+Performs discovery and fills fields without submitting:
 ```bash
 python main.py --dry-run
 ```
 
-### Live Auto-Apply Mode
-Runs end-to-end and submits applications for qualifying roles:
+#### Custom Target Role
+Target any specific role dynamically:
 ```bash
-python main.py
+python main.py --role "Full Stack Developer" --dry-run
 ```
 
-### Custom Role Search
-Target a specific role:
+#### Fresh Reset
+Wipe `state.json` history for clean-slate testing:
 ```bash
-python main.py --role "Remote Junior Backend Engineer" --dry-run
+python main.py --role "Python Developer" --dry-run --reset-state
+```
+
+#### Live Auto-Apply
+Submits applications for qualifying roles:
+```bash
+python main.py --role "Backend Developer"
 ```
 
 ---
 
-## Safety Features
+## 🛡️ Safety & Safeguards
 
-- **Human-in-the-Loop Delays**: Injects random 2.0s–5.0s pauses between browser actions to avoid bot triggers.
-- **CAPTCHA Detection**: If a CAPTCHA or Cloudflare Turnstile challenge is detected, the agent immediately pauses, logs the job to `state.json` under `"paused"`, and outputs an alert.
-- **Essay Protection**: If a job form requires long, custom essay responses (>150 characters), the agent pauses instead of hallucinating answers.
-- **Deduplication**: Never applies to the same job URL twice by checking `state.json`.
+- **Human Delays**: Employs random 2.0s–5.0s pauses between browser actions.
+- **Anti-Bot / CAPTCHA Guard**: Pauses and marks the role as `paused` in `state.json` if a CAPTCHA or Cloudflare challenge is encountered.
+- **Essay Question Protection**: Stops on lengthy open-ended essay questions to avoid hallucinated responses.
+- **State Deduplication**: Prevents duplicate visits or applications by indexing every processed job in `state.json`.
