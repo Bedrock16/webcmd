@@ -38,13 +38,17 @@ USER_PROFILE = {
 # ==========================================
 # 2. SEARCH INSTRUCTIONS & TARGET SITES
 # ==========================================
+from urllib.parse import quote as _url_quote
+
+_TARGET_ROLE = "Remote Junior Python Developer"
+
 SEARCH_CONFIG = {
-    "target_role": "Remote Junior Python Developer",
-    "search_keywords": ["Python", "Junior", "Remote", "Backend", "FastAPI", "Django"],
+    "target_role": _TARGET_ROLE,
+    "search_keywords": [kw.strip() for kw in _TARGET_ROLE.split() if len(kw.strip()) > 2],
     "target_sites": [
         {
             "name": "LinkedIn",
-            "url": "https://www.linkedin.com/jobs/search?keywords=Python%20Junior&location=Remote",
+            "url": f"https://www.linkedin.com/jobs/search?keywords={_url_quote(_TARGET_ROLE)}&location=Worldwide",
             "type": "linkedin"
         }
     ],
