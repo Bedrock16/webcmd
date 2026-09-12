@@ -11,7 +11,8 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
-from config import OPENAI_CONFIG, SCORING_RULES, AGENT_RULES
+from config import OPENAI_CONFIG, AGENT_RULES
+import config  # import module directly so SCORING_RULES is always read live (not cached)
 
 logger = logging.getLogger("FilterAgent")
 
@@ -23,7 +24,7 @@ class FilterAgent:
 
     def __init__(self, state_file_path: Optional[str] = None):
         self.state_file = Path(state_file_path or AGENT_RULES["state_file"])
-        self.min_passing_score = SCORING_RULES["min_passing_score"]
+        self.min_passing_score = config.SCORING_RULES["min_passing_score"]
         self.api_key = OPENAI_CONFIG.get("api_key")
         self.base_url = OPENAI_CONFIG.get("base_url")
         self.model = OPENAI_CONFIG.get("model", "qwen/qwen3.5-omni-plus:free")
@@ -167,7 +168,7 @@ Full Job Description:
 URL: {job.get('url')}
 
 Scoring Rules:
-{SCORING_RULES['scoring_criteria_prompt']}
+{config.SCORING_RULES['scoring_criteria_prompt']}
 """
         response = client.chat.completions.create(
             model=self.model,
@@ -198,7 +199,7 @@ Scoring Rules:
         Scores based on how many words from the user's target role appear in the job text.
         No hardcoded assumptions about remote, seniority, or tech stack.
         """
-        target_role = SCORING_RULES.get("target_role", "Software Developer").lower()
+        target_role = config.SCORING_RULES.get("target_role", "Software Developer").lower()
         role_keywords = [kw for kw in target_role.split() if len(kw) > 2]
 
         text = f"{job.get('title', '')} {job.get('snippet', '')} {job.get('description', '')} {job.get('location', '')}".lower()
