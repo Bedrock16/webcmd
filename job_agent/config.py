@@ -50,6 +50,11 @@ SEARCH_CONFIG = {
             "name": "LinkedIn",
             "url": f"https://www.linkedin.com/jobs/search?keywords={_url_quote(_TARGET_ROLE)}&location=Worldwide",
             "type": "linkedin"
+        },
+        {
+            "name": "Naukri",
+            "url": f"https://www.naukri.com/{'-'.join(_TARGET_ROLE.lower().split())}-jobs",
+            "type": "naukri"
         }
     ],
     "max_jobs_to_scrape": 15,
